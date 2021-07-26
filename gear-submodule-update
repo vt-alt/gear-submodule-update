@@ -1,0 +1,172 @@
+#!/bin/bash
+#
+# Update submodules for gear repository
+#
+# Copyright (c) 2021 Vitaly Chikunov <vt@altlinux.org>.
+# SPDX-License-Identifier: GPL-2.0-only
+#
+#  Update submodules
+#  Merge all submodules into single commit
+#  Update .gear/tags/list
+#  Update .gear/rules
+#  Update .spec
+
+run() {
+	printf '+' >&2
+	printf " %q" "$@" >&2
+	printf '\n' >&2
+	"$@" 2>&1
+}
+
+submodules() {
+	run git submodule --quiet foreach --recursive 'echo $displaypath:$sha1'
+}
+not_ancestors() {
+	while IFS=: read p h; do
+		if git merge-base HEAD $h >/dev/null 2>&1; then
+			echo >&2 ": Module $p:$h is already ancestor."
+		else
+			echo >&2 ": Module $p:$h needs merge!"
+			echo $p:$h
+		fi
+	done
+}
+names() {
+	local i
+	for i in "$@"; do echo ${MODNAME[${i%:*}]}; done
+}
+hashes() {
+	local i
+	for i in "$@"; do echo ${i#*:}; done
+}
+gear_rules_add() {
+	local b=$(basename $1) n=$2
+	grep -q "^tar: submodule/$n:\\." .gear/rules ||
+		run echo "tar: submodule/$n:. name=$n base=$b" >> .gear/rules
+}
+gear_rules_delete() {
+	local p=$1
+	local b=$(basename $p)
+	run sed -i "\\,^tar: submodule/$p:,d" .gear/rules
+}
+max_source_id() {
+	egrep -i -o '^[# ]*Source[0-9]+:' $specfile | egrep '[0-9]+' -o | sort -n | tail -1
+}
+add_source() {
+	local lineno
+	lineno=$(egrep -n -i '^[# ]*Source[0-9]*:' $specfile | cut -d: -f1 | tail -1)
+	run sed -i "$lineno a $*" $specfile
+	lineno=$(egrep -n -i '^%setup|%Source[0-9]' $specfile | cut -d: -f1 | tail -1)
+	local dir=$(dirname $p)
+	run sed -i "$lineno a tar xf %SOURCE$id -C $dir" $specfile
+}
+
+set -efu
+
+echo "Current submodule state:"
+git submodule status --recursive
+
+# 1. Update submodules
+echo "Sync all submodules"
+run git submodule update --init --recursive --progress
+
+# Prepare resolver path to name and name to path
+SUBMODULES=$(submodules)
+declare -i c=0
+declare -A MODNAME MODPATH
+for i in $SUBMODULES; do
+	c+=1 # All names will have suffix to avoid name collides.
+	h=${i#*:}
+	p=${i%:*}
+	b=$(basename $p)
+	for ((c=0;c<1000;c++)); do
+		[ -n "${MODPATH[$b-$c]-}" ] && continue
+		MODPATH[$b-$c]="$p"
+		MODNAME[$p]=$b-$c
+		break
+	done
+done
+
+# List submodules needing merge
+TO_MERGE=$(echo $SUBMODULES | xargs -n1 | not_ancestors)
+
+# Create heads named after path (fetch method)
+for i in $TO_MERGE; do
+	h=${i#*:}
+	p=${i%:*}
+	b=${MODNAME[$p]}
+
+	# Fetch particular commit to the head named after the path.
+	run git fetch --force $p $h:$b
+done
+if [ -n "$TO_MERGE" ]; then
+	run git merge -s ours --no-edit --allow-unrelated-histories $(names $TO_MERGE)
+else
+	echo "! Nothing to merge."
+fi
+
+if [ -d .gear/rules ]; then
+	echo "! No .gear/rules cannot continue."
+	exit
+fi
+
+# Guess specfile
+. gear-utils-sh-functions
+  disable_specsubst=1
+  chdir_to_toplevel
+  guess_specfile
+
+declare -i id=$(max_source_id)+1
+
+# Remove old submodules from .gear/tags/list
+TO_REMOVE=
+[ -s .gear/tags/list ] &&
+for t in `cut -d' ' -f2 .gear/tags/list | grep ^submodule/`; do
+	n=${t#submodule/}
+	if [ -z "${MODPATH[$n]-}" ]; then
+		run gear-update-tag --delete submodule/$n
+		TO_REMOVE+=" $n"
+	fi
+
+done
+# Remove old submodules from .gear/rules
+for t in `grep -o '^tar: submodule/[^: ]\+' .gear/rules | cut -d' ' -f2`; do
+	n=${t#submodule/}
+	if [ -z "${MODPATH[$n]-}" ]; then
+		run gear_rules_delete $n
+		git add .gear/rules
+		TO_REMOVE+=" $n"
+	fi
+done
+TO_REMOVE=$(echo $TO_REMOVE | xargs -n1 | sort -u)
+# echo ":: Modules to remove $TO_REMOVE"
+
+# Remove references in spec
+for p in $TO_REMOVE; do
+	b=$(basename $p)
+	if egrep -q -i "^Source[0-9]+: $b\\.tar" $specfile; then
+		sourceid=$(egrep -i -o "^Source[0-9]+: $b\\.tar" $specfile \
+			| egrep -o "Source[0-9]+")
+		run sed -i "/[^#].*%$sourceid\\b/Id" $specfile
+	fi
+	run sed -i "/^Source[0-9]\\+: $b\\.tar/Id" $specfile
+	git add $specfile
+done
+
+# Add new moduiles.
+for i in $SUBMODULES; do
+	h=${i#*:}
+	p=${i%:*}
+	b=${MODNAME[$p]}
+
+	# Fetch particular commit to the head named after the path.
+	run gear-update-tag submodule/$b $h
+	run gear_rules_add $p $b
+	git add .gear/rules
+	# Allow line to be commented out.
+	if ! egrep -q "[# ]*Source[0-9]+: $b.tar" $specfile; then
+		run add_source "Source$id: $b.tar"
+		git add $specfile
+		id+=1
+	fi
+done
