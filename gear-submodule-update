@@ -50,13 +50,13 @@ gear_rules_delete() {
 	run sed -i "\\,^tar: submodule/$p:,d" .gear/rules
 }
 max_source_id() {
-	egrep -i -o '^[# ]*Source[0-9]+:' $specfile | egrep '[0-9]+' -o | sort -n | tail -1
+	grep -E -i -o '^[# ]*Source[0-9]+:' $specfile | grep -E '[0-9]+' -o | sort -n | tail -1
 }
 add_source() {
 	local lineno
-	lineno=$(egrep -n -i '^[# ]*Source[0-9]*:' $specfile | cut -d: -f1 | tail -1)
+	lineno=$(grep -E -n -i '^[# ]*Source[0-9]*:' $specfile | cut -d: -f1 | tail -1)
 	run sed -i "$lineno a $*" $specfile
-	lineno=$(egrep -n -i '^%setup|%Source[0-9]' $specfile | cut -d: -f1 | tail -1)
+	lineno=$(grep -E -n -i '^%setup|%Source[0-9]' $specfile | cut -d: -f1 | tail -1)
 	local dir=$(dirname $p)
 	run sed -i "$lineno a tar xf %SOURCE$id -C $dir" $specfile
 }
@@ -144,9 +144,9 @@ TO_REMOVE=$(echo $TO_REMOVE | xargs -n1 | sort -u)
 # Remove references in spec
 for p in $TO_REMOVE; do
 	b=$(basename $p)
-	if egrep -q -i "^Source[0-9]+: $b\\.tar" $specfile; then
-		sourceid=$(egrep -i -o "^Source[0-9]+: $b\\.tar" $specfile \
-			| egrep -o "Source[0-9]+")
+	if grep -E -q -i "^Source[0-9]+: $b\\.tar" $specfile; then
+		sourceid=$(grep -E -i -o "^Source[0-9]+: $b\\.tar" $specfile \
+			| grep -E -o "Source[0-9]+")
 		run sed -i "/[^#].*%$sourceid\\b/Id" $specfile
 	fi
 	run sed -i "/^Source[0-9]\\+: $b\\.tar/Id" $specfile
@@ -164,7 +164,7 @@ for i in $SUBMODULES; do
 	run gear_rules_add $p $b
 	git add .gear/rules
 	# Allow line to be commented out.
-	if ! egrep -q "[# ]*Source[0-9]+: $b.tar" $specfile; then
+	if ! grep -E -q "[# ]*Source[0-9]+: $b.tar" $specfile; then
 		run add_source "Source$id: $b.tar"
 		git add $specfile
 		id+=1
