@@ -60,6 +60,15 @@ add_source() {
 	local dir=$(dirname $p)
 	run sed -i "$lineno a tar xf %SOURCE$id -C $dir" $specfile
 }
+update_source() {
+	set -x
+	local lineno source_id
+	source_id=$(grep -E -i "^[# ]*Source[0-9]*: $1" $specfile | grep -P -o '\d+' | head -1)
+	lineno=$(grep -E -n -i "^%setup|%Source$source_id\b" $specfile | cut -d: -f1 | tail -1)
+	local dir=$(dirname $p)
+	run sed -i "$lineno c tar xf %SOURCE$source_id -C $dir" $specfile
+	set +x
+}
 
 set -efu
 
@@ -167,7 +176,9 @@ for i in $SUBMODULES; do
 	# Allow line to be commented out.
 	if ! grep -E -q "[# ]*Source[0-9]+: $b.tar" $specfile; then
 		run add_source "Source$id: $b.tar"
-		git add $specfile
 		id+=1
+	else
+		run update_source "$b.tar"
 	fi
+	git add $specfile
 done
