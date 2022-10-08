@@ -12,9 +12,9 @@
 #  Update .spec
 
 run() {
-	printf '+' >&2
+	printf '\e[1;33m+' >&2
 	printf " %q" "$@" >&2
-	printf '\n' >&2
+	printf '\e[m\n' >&2
 	"$@" 2>&1
 }
 
