@@ -23,7 +23,7 @@ submodules() {
 }
 not_ancestors() {
 	while IFS=: read p h; do
-		if git merge-base HEAD $h >/dev/null 2>&1; then
+		if git merge-base --is-ancestor HEAD $h >/dev/null 2>&1; then
 			echo >&2 ": Module $p:$h is already ancestor."
 		else
 			echo >&2 ": Module $p:$h needs merge!"
