@@ -39,7 +39,7 @@ hashes() {
 	local i
 	for i in "$@"; do echo ${i#*:}; done
 }
-gear_rules_add() {
+gear_rules_add_tar() {
 	local b=$(basename $1) n=$2
 	grep -q "^tar: submodule/$n:\\." .gear/rules ||
 		run echo "tar: submodule/$n:. name=$n base=$b" >> .gear/rules
@@ -161,8 +161,8 @@ for i in $SUBMODULES; do
 	echo -e "\e[0;36m""Working out $h -> $p ($b)""\e[m"
 
 	# Fetch particular commit to the head named after the path.
-	run gear-update-tag submodule/$b $h
-	run gear_rules_add $p $b
+	run gear-update-tag submodule/$b $h # .gear/tags/list
+	run gear_rules_add_tar $p $b
 	git add .gear/rules
 	# Allow line to be commented out.
 	if ! grep -E -q "[# ]*Source[0-9]+: $b.tar" $specfile; then
