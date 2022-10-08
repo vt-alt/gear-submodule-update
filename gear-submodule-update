@@ -68,7 +68,7 @@ git submodule status --recursive
 
 # 1. Update submodules
 echo "Sync all submodules"
-run git submodule update --init --recursive --progress
+run git submodule update --init --recursive --progress --checkout
 
 # Prepare resolver path to name and name to path
 SUBMODULES=$(submodules)
