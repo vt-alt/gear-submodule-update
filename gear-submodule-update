@@ -184,3 +184,7 @@ for i in $SUBMODULES; do
 	fi
 	git add $specfile
 done
+
+if ! git diff --cached --quiet; then
+	run git commit -m "ALT: gear-submodule-update"
+fi
