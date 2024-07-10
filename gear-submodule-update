@@ -61,7 +61,6 @@ add_source() {
 	run sed -i "$lineno a tar xf %SOURCE$id -C $dir" $specfile
 }
 update_source() {
-	set -x
 	local lineno source_id
 	source_id=$(grep -E -i "^[# ]*Source[0-9]*: $1" $specfile | grep -P -o '\d+' | head -1)
 	lineno=$(grep -E -n -i "^%setup|%Source$source_id\b" $specfile | cut -d: -f1 | tail -1)
