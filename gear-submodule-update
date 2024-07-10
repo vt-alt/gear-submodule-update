@@ -11,6 +11,8 @@
 #  Update .gear/rules
 #  Update .spec
 
+set -efu
+
 run() {
 	printf '\e[1;33m+' >&2
 	printf " %q" "$@" >&2
@@ -69,7 +71,11 @@ update_source() {
 	set +x
 }
 
-set -efu
+if ! git diff --quiet ||
+   ! git diff --quiet --cached; then
+	echo >&2 "Current git tree is unclean. Do not proceed for safety."
+	exit 1
+fi
 
 echo -e "\e[0;32m""Current submodule state:""\e[m"
 git submodule status --recursive
