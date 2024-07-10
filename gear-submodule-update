@@ -133,6 +133,8 @@ for t in `cut -d' ' -f2 .gear/tags/list | grep ^submodule/`; do
 	n=${t#submodule/}
 	if [ -z "${MODPATH[$n]-}" ]; then
 		run gear-update-tag --delete submodule/$n
+		[ -e .git/refs/tags/submodule/$n ] &&
+			run git tag -d submodule/$n
 		TO_REMOVE+=" $n"
 	fi
 
@@ -170,6 +172,7 @@ for i in $SUBMODULES; do
 
 	# Fetch particular commit to the head named after the path.
 	run gear-update-tag submodule/$b $h # .gear/tags/list
+	run git tag -f submodule/$b $h
 	run gear_rules_add_tar $p $b
 	git add .gear/rules
 	# Allow line to be commented out.
