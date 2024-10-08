@@ -111,7 +111,7 @@ for i in $TO_MERGE; do
 	b=${MODNAME[$p]}
 
 	# Fetch particular commit to the head named after the path.
-	run git fetch --force $p $h:$b
+	run git fetch ${UNSHALLOW+--unshallow} --no-tags --force $p $h:$b
 done
 if [ -n "$TO_MERGE" ]; then
 	run git merge -s ours --no-edit --allow-unrelated-histories $(names $TO_MERGE)
