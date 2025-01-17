@@ -130,6 +130,20 @@ fi
   chdir_to_toplevel
   guess_specfile
 
+note=
+if [ -z "$specfile" ]; then
+	specfile=empty.spec
+	if [ ! -e "$specfile" ]; then
+		cat >>"$specfile" <<-EOF
+		Source: %name-%version.tar
+
+		%prep
+		%setup
+		EOF
+		note="($specfile)"
+	fi
+fi
+
 declare -i id=$(max_source_id)+1
 
 # Remove old submodules from .gear/tags/list
@@ -192,5 +206,5 @@ for i in $SUBMODULES; do
 done
 
 if ! git diff --cached --quiet; then
-	run git commit -m "ALT: gear-submodule-update"
+	run git commit -m "ALT: gear-submodule-update $note"
 fi
