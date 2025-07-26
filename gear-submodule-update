@@ -115,6 +115,7 @@ for i in $TO_MERGE; do
 done
 if [ -n "$TO_MERGE" ]; then
 	run git merge -s ours --no-edit --allow-unrelated-histories $(names $TO_MERGE)
+	run git commit --no-edit --amend --trailer "Merge-Strategy: ours"
 else
 	echo "! Nothing to merge."
 fi
